@@ -43,6 +43,7 @@ def main() -> None:
 
     output = {
         "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
             "permissionDecision": decision.action,
             "permissionDecisionReason": decision.reason,
         }

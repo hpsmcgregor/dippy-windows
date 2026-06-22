@@ -66,12 +66,17 @@ def _analyze_segment(segment: str) -> Decision:
         return combine(sub) if sub else Decision("allow", "empty cmdlet")
 
     cmdlet = resolve_alias(cmdlet_raw)
+
+    # Deny check must precede the help/version short-circuit: a dangerous cmdlet
+    # invoked with -v/-h/--help/-? (e.g. "Remove-Item -v ." where -v abbreviates
+    # -Verbose) still runs and must not be allowed through.
+    if cmdlet in PS_DANGEROUS_CMDLETS:
+        return Decision("deny", f"dangerous cmdlet: {cmdlet}")
+
     tokens = segment.split()
     if any(t in ("--version", "-v", "--help", "-h", "-?") for t in tokens):
         return combine(sub + [Decision("allow", "version/help flag")])
 
-    if cmdlet in PS_DANGEROUS_CMDLETS:
-        return Decision("deny", f"dangerous cmdlet: {cmdlet}")
     if cmdlet in PS_ASK_CMDLETS:
         return combine(sub + [Decision("ask", f"requires confirmation: {cmdlet}")])
     if cmdlet in PS_SAFE_CMDLETS:

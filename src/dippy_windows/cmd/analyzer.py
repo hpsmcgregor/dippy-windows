@@ -1,7 +1,7 @@
 import re
 import shlex
 
-from dippy_windows.types import Decision
+from dippy_windows.types import Decision, combine
 
 _CMD_RE = re.compile(
     r"^\s*cmd(?:\.exe)?\s+/[cC]\s+",
@@ -53,11 +53,37 @@ def extract_cmd_payload(command: str) -> str | None:
     return None
 
 
-def analyze_cmd(command: str) -> Decision:
-    """Analyze a raw CMD command string (not a full `cmd /c` invocation)."""
+def _split_cmd_segments(command: str) -> list[str]:
+    """Split on CMD separators (& && | ||), respecting double-quoted strings.
+
+    CMD chains commands with these operators, so a dangerous command after any
+    separator (e.g. `echo hi & del C:\\x`) must be analyzed on its own.
+    """
+    segments: list[str] = []
+    buf: list[str] = []
+    in_quote = False
+    i = 0
+    while i < len(command):
+        ch = command[i]
+        if ch == '"':
+            in_quote = not in_quote
+            buf.append(ch)
+            i += 1
+        elif not in_quote and ch in ("&", "|"):
+            segments.append("".join(buf))
+            buf = []
+            i += 2 if i + 1 < len(command) and command[i + 1] == ch else 1
+        else:
+            buf.append(ch)
+            i += 1
+    segments.append("".join(buf))
+    return segments
+
+
+def _analyze_cmd_segment(command: str) -> Decision:
     command = command.strip()
     if not command:
-        return Decision("ask", "empty CMD command")
+        return Decision("allow", "empty CMD segment")
 
     if ">" in command:
         return Decision("ask", "CMD output redirect")
@@ -68,7 +94,7 @@ def analyze_cmd(command: str) -> Decision:
         tokens = command.split()
 
     if not tokens:
-        return Decision("ask", "empty CMD command")
+        return Decision("allow", "empty CMD segment")
 
     name = tokens[0].lower()
     if name.endswith(".exe"):
@@ -84,3 +110,16 @@ def analyze_cmd(command: str) -> Decision:
         return Decision("allow", f"safe CMD command: {name}")
 
     return Decision("ask", f"unknown CMD command: {name}")
+
+
+def analyze_cmd(command: str) -> Decision:
+    """Analyze a raw CMD command string (not a full `cmd /c` invocation)."""
+    command = command.strip()
+    if not command:
+        return Decision("ask", "empty CMD command")
+
+    segments = [s for s in _split_cmd_segments(command) if s.strip()]
+    if not segments:
+        return Decision("ask", "empty CMD command")
+
+    return combine([_analyze_cmd_segment(s) for s in segments])

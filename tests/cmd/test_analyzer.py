@@ -51,3 +51,17 @@ class TestAnalyzeCmd:
 
     def test_redirect_asks(self):
         assert analyze_cmd("dir > output.txt").action == "ask"
+
+
+class TestChaining:
+    def test_amp_chain_del(self):
+        assert analyze_cmd(r"echo hi & del /q C:\important").action == "deny"
+
+    def test_andand_chain_del(self):
+        assert analyze_cmd(r"echo hi && del /q C:\important").action == "deny"
+
+    def test_pipe_chain_format(self):
+        assert analyze_cmd("echo y | format C:").action == "deny"
+
+    def test_amp_inside_quotes_not_split(self):
+        assert analyze_cmd('echo "a & b"').action == "allow"

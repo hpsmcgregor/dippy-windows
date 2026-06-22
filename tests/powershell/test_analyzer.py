@@ -31,3 +31,12 @@ class TestAnalyzePs:
     def test_deny_in_pipeline(self): assert analyze_ps("Get-ChildItem | Remove-Item").action == "deny"
     def test_subexpr_deny(self):     assert analyze_ps("Write-Host $(Remove-Item .)").action == "deny"
     def test_chained_deny(self):     assert analyze_ps("Get-Date; Remove-Item ./tmp").action == "deny"
+
+
+class TestHelpFlagDoesNotBypassDeny:
+    """A help/version flag must not allow a dangerous cmdlet through."""
+
+    def test_dangerous_with_v(self):    assert analyze_ps("Remove-Item -v .").action == "deny"
+    def test_dangerous_with_h(self):    assert analyze_ps("Stop-Process -h").action == "deny"
+    def test_dangerous_with_help(self): assert analyze_ps("Remove-Item --help .").action == "deny"
+    def test_dangerous_with_qmark(self): assert analyze_ps("Remove-Item -?").action == "deny"

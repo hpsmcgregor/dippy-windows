@@ -65,3 +65,11 @@ class TestPsHeuristicViaBash:
     def test_ps_command_via_bash_analyzed_as_ps(self):
         out = run_hook({"tool_name": "Bash", "tool_input": {"command": "Get-ChildItem C:\\src"}})
         assert decision(out) == "allow"
+
+
+class TestOutputSchema:
+    def test_hook_event_name_present(self):
+        # Claude Code requires hookEventName="PreToolUse" for the permission
+        # decision to be honored in a live session.
+        out = run_hook({"tool_name": "PowerShell", "tool_input": {"command": "Get-ChildItem"}})
+        assert out["hookSpecificOutput"]["hookEventName"] == "PreToolUse"
