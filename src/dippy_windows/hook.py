@@ -4,7 +4,7 @@ import sys
 from dippy_windows.bash.analyzer import analyze_bash
 from dippy_windows.cmd.analyzer import analyze_cmd, extract_cmd_payload
 from dippy_windows.powershell.analyzer import analyze_ps, is_powershell_command
-from dippy_windows.types import Decision, combine
+from dippy_windows.types import Decision
 
 _BASH_TOOL = "Bash"
 _PS_TOOL = "PowerShell"
