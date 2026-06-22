@@ -20,8 +20,9 @@ def _apply_cmd_overlay(command: str, base: Decision) -> Decision:
 
 def main() -> None:
     try:
-        payload = json.load(sys.stdin)
-    except (json.JSONDecodeError, ValueError):
+        raw = sys.stdin.buffer.read().decode('utf-8-sig')  # utf-8-sig strips BOM if present
+        payload = json.loads(raw)
+    except (json.JSONDecodeError, ValueError, UnicodeDecodeError):
         print("{}")
         return
 
