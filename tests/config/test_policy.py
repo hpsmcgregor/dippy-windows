@@ -34,6 +34,10 @@ class TestClassifyCommand:
         p = Policy(command_rules=(cmd("deny", "git"),), aliases=(("g", "git"),))
         assert p.classify_command("g push").action == "deny"
 
+    def test_alias_key_case_insensitive(self):
+        p = Policy(command_rules=(cmd("deny", "git"),), aliases=(("G", "git"),))
+        assert p.classify_command("G push").action == "deny"
+
     def test_default_message_when_none(self):
         p = Policy(command_rules=(cmd("allow", "ls"),))
         assert p.classify_command("ls -la").reason
@@ -77,6 +81,11 @@ class TestRedirects:
         p = Policy(redirect_rules=(red("allow", "build/*.log"),))
         d = p.resolve_redirects(Decision("allow", "ok"), ["build/x.log"])
         assert d.action == "allow"
+
+    def test_command_deny_overrides_allow_redirect(self):
+        p = Policy(redirect_rules=(red("allow", "build/*.log"),))
+        d = p.resolve_redirects(Decision("deny", "blocked"), ["build/x.log"])
+        assert d.action == "deny"
 
 
 class TestClassifyMcp:

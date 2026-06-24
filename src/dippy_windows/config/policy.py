@@ -26,7 +26,7 @@ class Policy:
         toks = raw_segment.strip().split()
         if not toks:
             return ""
-        alias_map = dict(self.aliases)
+        alias_map = {k.lower(): v for k, v in self.aliases}
         head = alias_map.get(toks[0].lower(), toks[0].lower())
         return " ".join([head] + toks[1:])
 
