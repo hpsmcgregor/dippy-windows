@@ -70,3 +70,21 @@ def test_load_policy_never_raises(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     monkeypatch.delenv("DIPPY_WINDOWS_CONFIG", raising=False)
     assert isinstance(load_policy(), Policy)
+
+
+def test_load_policy_skips_unreadable_file(tmp_path, monkeypatch):
+    cfg = tmp_path / "bad.cfg"
+    cfg.write_text("allow ls\n", encoding="utf-8")
+    monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path / "nohome")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("DIPPY_WINDOWS_CONFIG", str(cfg))
+
+    real_read = __import__("pathlib").Path.read_text
+    def boom(self, *a, **k):
+        raise OSError("unreadable")
+    monkeypatch.setattr("pathlib.Path.read_text", boom)
+
+    # must not raise; unreadable file is skipped -> empty Policy
+    p = load_policy()
+    assert isinstance(p, Policy)
+    assert p.command_rules == ()

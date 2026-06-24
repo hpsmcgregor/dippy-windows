@@ -10,10 +10,17 @@ _PROJECT_NAME = ".dippy-windows"
 _ENV_VAR = "DIPPY_WINDOWS_CONFIG"
 
 
+def _is_file(path: Path) -> bool:
+    try:
+        return path.is_file()
+    except OSError:
+        return False
+
+
 def _project_config(start: Path) -> Path | None:
     for directory in [start, *start.parents]:
         candidate = directory / _PROJECT_NAME
-        if candidate.is_file():
+        if _is_file(candidate):
             return candidate
     return None
 
@@ -22,13 +29,13 @@ def discover_paths() -> list[Path]:
     """Lowest precedence first (loaded earlier); last match wins overall."""
     paths: list[Path] = []
     global_path = Path.home().joinpath(*_GLOBAL_REL)
-    if global_path.is_file():
+    if _is_file(global_path):
         paths.append(global_path)
     project = _project_config(Path.cwd())
     if project is not None:
         paths.append(project)
     env = os.environ.get(_ENV_VAR)
-    if env and Path(env).is_file():
+    if env and _is_file(Path(env)):
         paths.append(Path(env))
     return paths
 
