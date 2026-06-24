@@ -1,17 +1,27 @@
 import json
+import os
 import subprocess
 import sys
+import tempfile
 
 
 def run_hook(payload: dict, env_extra: dict | None = None) -> dict:
-    import os
     env = dict(os.environ)
-    if env_extra:
-        env.update(env_extra)
-    result = subprocess.run(
-        [sys.executable, "-m", "dippy_windows.hook"],
-        input=json.dumps(payload), capture_output=True, text=True, env=env,
-    )
+    env.pop("DIPPY_WINDOWS_CONFIG", None)  # never inherit a stray config file
+    with tempfile.TemporaryDirectory() as isolated:
+        # Isolate home (~/.dippy-windows/config) and cwd (.dippy-windows walk-up)
+        env["USERPROFILE"] = isolated
+        env["HOME"] = isolated
+        if env_extra:
+            env.update(env_extra)
+        result = subprocess.run(
+            [sys.executable, "-m", "dippy_windows.hook"],
+            input=json.dumps(payload),
+            capture_output=True,
+            text=True,
+            env=env,
+            cwd=isolated,
+        )
     assert result.returncode == 0, result.stderr
     return json.loads(result.stdout)
 
