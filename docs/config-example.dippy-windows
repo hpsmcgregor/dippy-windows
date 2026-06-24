@@ -61,7 +61,7 @@ allow npm test
 allow npm run            # runs arbitrary package.json scripts — keep only if trusted
 allow dotnet build
 allow dotnet test
-allow make               # runs arbitrary Makefile targets
+allow make               # runs arbitrary Makefile targets — keep only if trusted
 
 # --- Cloud CLIs: read-only allowed, everything else asks ---
 allow aws sts get-caller-identity
