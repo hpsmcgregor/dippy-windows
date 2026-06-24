@@ -88,3 +88,15 @@ def test_load_policy_skips_unreadable_file(tmp_path, monkeypatch):
     p = load_policy()
     assert isinstance(p, Policy)
     assert p.command_rules == ()
+
+
+def test_malformed_line_warns_to_stderr(capsys):
+    build_policy(["allow git\ndney rm\n# a comment\n\n"])
+    err = capsys.readouterr().err
+    assert "malformed config line" in err
+    assert "dney rm" in err
+
+
+def test_blank_and_comment_lines_do_not_warn(capsys):
+    build_policy(["# just a comment\n\nallow git\n"])
+    assert capsys.readouterr().err == ""

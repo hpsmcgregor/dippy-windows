@@ -1,4 +1,5 @@
 import os
+import sys
 from pathlib import Path
 
 from dippy_windows.config.parser import Directive, parse_line
@@ -52,6 +53,9 @@ def build_policy(texts: list[str]) -> Policy:
         for line in text.splitlines():
             parsed = parse_line(line)
             if parsed is None:
+                stripped = line.strip()
+                if stripped and not stripped.startswith("#"):
+                    print(f"dippy-windows: ignoring malformed config line: {stripped}", file=sys.stderr)
                 continue
             if isinstance(parsed, Rule):
                 if parsed.kind == "command":

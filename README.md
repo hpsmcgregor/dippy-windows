@@ -77,7 +77,7 @@ Blocked: `Remove-Item`, `Stop-Process`, `Invoke-Expression`, `Invoke-Command`, `
 
 ### CMD (nested detection)
 
-When Claude calls `cmd /c "..."` inside a Bash or PowerShell command, the payload is extracted and analysed as a CMD command. Safe: `dir`, `echo`, `where`, `type`. Blocked: `del`, `rd`, `format`, `shutdown`.
+When Claude calls `cmd /c "..."` inside a Bash or PowerShell command, the payload is extracted and analysed as a CMD command. Safe: `dir`, `echo`, `where`, `type`. Blocked: `del`, `rd`, `format`, `shutdown`. Note: in CMD payloads (`cmd /c ...`), a command segment containing a `>`/`>>` redirect always resolves to `ask` and config command rules do not apply to that segment; redirect path rules apply to Bash and PowerShell only.
 
 ## User Configuration
 
