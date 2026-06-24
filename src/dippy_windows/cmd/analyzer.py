@@ -1,6 +1,7 @@
 import re
 import shlex
 
+from dippy_windows.config.policy import EMPTY_POLICY, Policy
 from dippy_windows.types import Decision, combine
 
 _CMD_RE = re.compile(
@@ -80,7 +81,7 @@ def _split_cmd_segments(command: str) -> list[str]:
     return segments
 
 
-def _analyze_cmd_segment(command: str) -> Decision:
+def _analyze_cmd_segment(command: str, policy: Policy) -> Decision:
     command = command.strip()
     if not command:
         return Decision("allow", "empty CMD segment")
@@ -101,18 +102,18 @@ def _analyze_cmd_segment(command: str) -> Decision:
         name = name[:-4]
 
     if name in _CMD_DENY:
-        return Decision("deny", f"dangerous CMD command: {name}")
+        builtin = Decision("deny", f"dangerous CMD command: {name}")
+    elif any(t in ("/?", "/help") for t in tokens):
+        builtin = Decision("allow", "CMD help flag")
+    elif name in _CMD_SAFE:
+        builtin = Decision("allow", f"safe CMD command: {name}")
+    else:
+        builtin = policy.default_decision_for_unknown(name)
 
-    if any(t in ("/?", "/help") for t in tokens):
-        return Decision("allow", "CMD help flag")
-
-    if name in _CMD_SAFE:
-        return Decision("allow", f"safe CMD command: {name}")
-
-    return Decision("ask", f"unknown CMD command: {name}")
+    return policy.resolve_command(command, builtin)
 
 
-def analyze_cmd(command: str) -> Decision:
+def analyze_cmd(command: str, policy: Policy = EMPTY_POLICY) -> Decision:
     """Analyze a raw CMD command string (not a full `cmd /c` invocation)."""
     command = command.strip()
     if not command:
@@ -122,4 +123,4 @@ def analyze_cmd(command: str) -> Decision:
     if not segments:
         return Decision("ask", "empty CMD command")
 
-    return combine([_analyze_cmd_segment(s) for s in segments])
+    return combine([_analyze_cmd_segment(s, policy) for s in segments])
