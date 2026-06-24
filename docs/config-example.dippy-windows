@@ -1,0 +1,20 @@
+# dippy-windows user config. Place at ~/.dippy-windows/config (global),
+# or .dippy-windows in your project root, or point $DIPPY_WINDOWS_CONFIG at it.
+# Rules are evaluated in order; the LAST matching rule wins.
+
+# --- Command rules: allow / ask / deny <pattern> ['message'] ---
+allow git                         # git and all subcommands
+deny rm -rf 'Use trash instead'
+ask  npm install 'Confirm dependency installs'
+
+# --- Redirect rules: match > / >> target paths (supports **, *, ?, [abc]) ---
+deny-redirect **/.env* 'Never write secrets — ask me to do it'
+allow-redirect build/**
+
+# --- MCP rules: match the MCP tool name ---
+deny-mcp mcp__github__* 'No automated GitHub writes'
+
+# --- Directives ---
+alias g git                       # treat 'g' as 'git' for matching
+set default ask                   # decision for unknown commands (allow|ask|deny)
+# set log C:/Users/me/dippy.log   # append an audit line per decision

@@ -22,9 +22,10 @@ env/
 htmlcov/
 coverage.xml
 
-# Claude Code
+# Claude Code / superpowers working files (CLAUDE.md is intentionally committable)
 .claude/
-CLAUDE.md
+.superpowers/
+docs/superpowers/
 
 # IDE
 .vscode/

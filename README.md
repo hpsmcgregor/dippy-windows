@@ -77,7 +77,36 @@ Blocked: `Remove-Item`, `Stop-Process`, `Invoke-Expression`, `Invoke-Command`, `
 
 ### CMD (nested detection)
 
-When Claude calls `cmd /c "..."` inside a Bash or PowerShell command, the payload is extracted and analysed as a CMD command. Safe: `dir`, `echo`, `where`, `type`. Blocked: `del`, `rd`, `format`, `shutdown`.
+When Claude calls `cmd /c "..."` inside a Bash or PowerShell command, the payload is extracted and analysed as a CMD command. Safe: `dir`, `echo`, `where`, `type`. Blocked: `del`, `rd`, `format`, `shutdown`. Note: in CMD payloads (`cmd /c ...`), a command segment containing a `>`/`>>` redirect always resolves to `ask` and config command rules do not apply to that segment; redirect path rules apply to Bash and PowerShell only.
+
+## User Configuration
+
+dippy-windows works with zero config, but you can override its built-in policy and
+attach custom messages that steer Claude. Rules are read from (lowest to highest
+precedence): `~/.dippy-windows/config`, a `.dippy-windows` file in your project (found
+by walking up from the working directory), and `$DIPPY_WINDOWS_CONFIG`. Rules are
+evaluated in order and the **last matching rule wins** — so a user rule can override a
+built-in decision, including a built-in deny.
+
+```text
+allow git                          # allow git and all subcommands
+deny rm -rf 'Use trash instead'    # block with a message shown to Claude
+ask  npm install                   # force a confirmation prompt
+deny-redirect **/.env* 'No secrets' # block writes (> / >>) to matching paths
+deny-mcp mcp__github__*            # block matching MCP tools
+alias g git                        # matching alias
+set default ask                    # decision for unknown commands
+set log C:/path/dippy.log          # audit log
+```
+
+Patterns are prefix matches by default (`git` matches `git push`); append `|` for an
+exact match (`git status|`). Wildcards `*`, `?`, `[abc]` are supported, plus `**` for
+recursive path matching in redirect rules. A full example is in
+[`docs/config-example.dippy-windows`](docs/config-example.dippy-windows).
+
+To gate MCP tools, add an `mcp__.*` matcher to the `PreToolUse` hooks in your
+`settings.json` (see install instructions); without a matching `*-mcp` rule, MCP tools
+pass through untouched.
 
 ## Keeping Parable in sync
 

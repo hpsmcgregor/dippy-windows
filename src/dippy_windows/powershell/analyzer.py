@@ -1,5 +1,6 @@
 import re
 
+from dippy_windows.config.policy import EMPTY_POLICY, Policy
 from dippy_windows.powershell.allowlists import (
     PS_ASK_CMDLETS, PS_DANGEROUS_CMDLETS, PS_SAFE_CMDLETS, resolve_alias,
 )
@@ -16,25 +17,34 @@ _PS_VERB_RE = re.compile(
     re.IGNORECASE,
 )
 _PS_DOLLAR_RE = re.compile(r"\$[A-Za-z_]")
+_REDIRECT_TARGET_RE = re.compile(r">>?\s*([^\s|;&>]+)")
 
 
 def is_powershell_command(command: str) -> bool:
     return bool(_PS_VERB_RE.search(command) or _PS_DOLLAR_RE.search(command))
 
 
-def _has_redirect(segment: str) -> bool:
+def _redirect_targets(segment: str) -> list[str]:
+    targets: list[str] = []
     in_single = in_double = False
-    for ch in segment:
+    i = 0
+    while i < len(segment):
+        ch = segment[i]
         if ch == "'" and not in_double:
             in_single = not in_single
         elif ch == '"' and not in_single:
             in_double = not in_double
-        elif ch == '>' and not in_single and not in_double:
-            return True
-    return False
+        elif ch == ">" and not in_single and not in_double:
+            m = _REDIRECT_TARGET_RE.match(segment, i)
+            if m:
+                targets.append(m.group(1).strip("'\""))
+                i = m.end()
+                continue
+        i += 1
+    return targets
 
 
-def _subexpr_decisions(segment: str) -> list[Decision]:
+def _subexpr_decisions(segment: str, policy: Policy) -> list[Decision]:
     results: list[Decision] = []
     i = 0
     while i < len(segment):
@@ -46,49 +56,52 @@ def _subexpr_decisions(segment: str) -> list[Decision]:
                 elif segment[j] == ')':
                     depth -= 1
                 j += 1
-            results.append(analyze_ps(segment[i + 2: j - 1]))
+            results.append(analyze_ps(segment[i + 2: j - 1], policy))
             i = j
         else:
             i += 1
     return results
 
 
-def _analyze_segment(segment: str) -> Decision:
-    segment = segment.strip()
-    if not segment:
-        return Decision("allow", "empty segment")
-    if _has_redirect(segment):
-        return Decision("ask", "output redirect")
-
-    sub = _subexpr_decisions(segment)
-    cmdlet_raw = ps_extract_cmdlet(segment)
-    if not cmdlet_raw:
-        return combine(sub) if sub else Decision("allow", "empty cmdlet")
-
-    cmdlet = resolve_alias(cmdlet_raw)
-
-    # Deny check must precede the help/version short-circuit: a dangerous cmdlet
-    # invoked with -v/-h/--help/-? (e.g. "Remove-Item -v ." where -v abbreviates
-    # -Verbose) still runs and must not be allowed through.
+def _builtin_segment_decision(segment: str, cmdlet: str, policy: Policy) -> Decision:
     if cmdlet in PS_DANGEROUS_CMDLETS:
         return Decision("deny", f"dangerous cmdlet: {cmdlet}")
 
     tokens = segment.split()
     if any(t in ("--version", "-v", "--help", "-h", "-?") for t in tokens):
-        return combine(sub + [Decision("allow", "version/help flag")])
+        return Decision("allow", "version/help flag")
 
     if cmdlet in PS_ASK_CMDLETS:
-        return combine(sub + [Decision("ask", f"requires confirmation: {cmdlet}")])
+        return Decision("ask", f"requires confirmation: {cmdlet}")
     if cmdlet in PS_SAFE_CMDLETS:
-        return combine(sub + [Decision("allow", f"safe cmdlet: {cmdlet}")])
-    return combine(sub + [Decision("ask", f"unknown command: {cmdlet}")])
+        return Decision("allow", f"safe cmdlet: {cmdlet}")
+    return policy.default_decision_for_unknown(cmdlet)
 
 
-def analyze_ps(command: str) -> Decision:
+def _analyze_segment(segment: str, policy: Policy) -> Decision:
+    segment = segment.strip()
+    if not segment:
+        return Decision("allow", "empty segment")
+
+    sub = _subexpr_decisions(segment, policy)
+    targets = _redirect_targets(segment)
+    cmdlet_raw = ps_extract_cmdlet(segment)
+    if not cmdlet_raw:
+        base = combine(sub) if sub else Decision("allow", "empty cmdlet")
+        return policy.resolve_redirects(base, targets)
+
+    cmdlet = resolve_alias(cmdlet_raw)
+    builtin = _builtin_segment_decision(segment, cmdlet, policy)
+    resolved = policy.resolve_command(segment, builtin)
+    with_redirects = policy.resolve_redirects(resolved, targets)
+    return combine(sub + [with_redirects])
+
+
+def analyze_ps(command: str, policy: Policy = EMPTY_POLICY) -> Decision:
     if not command.strip():
         return Decision("ask", "empty command")
     decisions: list[Decision] = []
     for pseg in ps_split_pipeline(command):
         for part in ps_split_chain(pseg):
-            decisions.append(_analyze_segment(part))
+            decisions.append(_analyze_segment(part, policy))
     return combine(decisions)
