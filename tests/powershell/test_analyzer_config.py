@@ -1,6 +1,6 @@
 from dippy_windows.config.policy import Policy
 from dippy_windows.config.rules import Rule, compile_command_pattern, compile_path_pattern
-from dippy_windows.powershell.analyzer import analyze_ps
+from dippy_windows.powershell.analyzer import analyze_ps, _redirect_targets
 
 
 def cmd(action, pat, msg=None):
@@ -32,3 +32,11 @@ def test_deny_redirect_target():
 def test_no_policy_unchanged():
     assert analyze_ps("Get-ChildItem C:\\src").action == "allow"
     assert analyze_ps("Remove-Item -Force .").action == "deny"
+
+
+def test_append_redirect_target_not_duplicated():
+    assert _redirect_targets("Get-ChildItem >> out.txt") == ["out.txt"]
+
+
+def test_single_redirect_target():
+    assert _redirect_targets("Get-ChildItem > .env") == [".env"]

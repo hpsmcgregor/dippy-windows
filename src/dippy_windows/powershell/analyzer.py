@@ -38,6 +38,8 @@ def _redirect_targets(segment: str) -> list[str]:
             m = _REDIRECT_TARGET_RE.match(segment, i)
             if m:
                 targets.append(m.group(1).strip("'\""))
+                i = m.end()
+                continue
         i += 1
     return targets
 
