@@ -1,20 +1,141 @@
-# dippy-windows user config. Place at ~/.dippy-windows/config (global),
-# or .dippy-windows in your project root, or point $DIPPY_WINDOWS_CONFIG at it.
-# Rules are evaluated in order; the LAST matching rule wins.
+# dippy-windows example config — copy to ~/.dippy-windows/config (global), to a
+# .dippy-windows file in a project root, or point $DIPPY_WINDOWS_CONFIG at it.
+# Rules are evaluated in order; the LAST matching rule wins. Config is absolute: an
+# `allow` here auto-approves and overrides built-in policy, so keep `allow` rules scoped.
+# Path/redirect rules use `**/` globs so they match a target regardless of how the path
+# is written (e.g. C:\Users\<you>\.ssh\... or /c/Users/...).
 
-# --- Command rules: allow / ask / deny <pattern> ['message'] ---
-allow git                         # git and all subcommands
-deny rm -rf 'Use trash instead'
-ask  npm install 'Confirm dependency installs'
+# Baseline: unknown commands prompt
+set default ask
 
-# --- Redirect rules: match > / >> target paths (supports **, *, ?, [abc]) ---
-deny-redirect **/.env* 'Never write secrets — ask me to do it'
-allow-redirect build/**
+# --- Read-only inspection ---
+allow ls
+allow pwd
+allow cat
+allow head
+allow tail
+allow grep
+allow rg
+allow which
+allow echo
+allow env|
+allow git status
+allow git log
+allow git diff
+allow git show
+allow git branch
+allow git remote
+allow gh pr view
+allow gh pr list
+allow gh issue view
+allow gh issue list
+allow gh run view
+allow gh run list
+# find is allowed for searching; its action flags run/delete files, so gate them
+allow find
+ask find*-delete*
+ask find*-exec*
+ask find*-ok*
 
-# --- MCP rules: match the MCP tool name ---
-deny-mcp mcp__github__* 'No automated GitHub writes'
+# --- Local dev (fast, reversible) ---
+allow git add
+allow git commit
+allow git checkout
+allow git switch
+allow git restore
+allow git stash
+allow git pull
+allow git fetch
+allow git merge
+allow git rebase
+allow uv
+allow ruff
+allow pytest
+allow pyright
+allow npm test
+allow npm run            # runs arbitrary package.json scripts — keep only if trusted
+allow dotnet build
+allow dotnet test
+allow make               # runs arbitrary Makefile targets
 
-# --- Directives ---
-alias g git                       # treat 'g' as 'git' for matching
-set default ask                   # decision for unknown commands (allow|ask|deny)
-# set log C:/Users/me/dippy.log   # append an audit line per decision
+# --- Cloud CLIs: read-only allowed, everything else asks ---
+allow aws sts get-caller-identity
+allow aws s3 ls
+allow aws s3api list-buckets
+allow az account show
+allow az account list
+allow az group list
+allow az group show
+allow kubectl get
+allow kubectl describe
+allow kubectl logs
+allow kubectl config get-contexts
+allow kubectl config current-context
+allow pulumi preview
+allow pulumi stack
+allow pulumi config
+allow terraform plan
+allow terraform validate
+allow terraform show
+
+# --- Blast-radius actions: confirm first ---
+ask git push
+ask gh pr create
+ask gh pr merge
+ask gh pr close
+ask gh pr comment
+ask npm install
+ask pip install
+ask docker run
+ask docker build
+ask kubectl apply
+ask kubectl delete
+ask helm install
+ask helm upgrade
+ask helm uninstall
+ask pulumi up
+ask pulumi destroy
+ask pulumi refresh
+ask terraform apply
+ask terraform destroy
+ask az deployment
+ask az group create
+ask az group delete
+
+# --- Hard no (the built-in policy already denies rm / del / Remove-Item; these add messages) ---
+deny sudo "No sudo via AI"
+deny gh pr merge*--admin* "Admin-merge blocked"
+
+# git's base command is auto-allowed by the safe-list, so its destructive subcommands
+# are gated explicitly here (last-match-wins puts these after the allow git ... lines).
+deny git reset --hard* "Discards uncommitted work; run manually if intended"
+deny git push*--force* "Force-push rewrites remote history; run manually if intended"
+ask  git push*--force-with-lease* "Force-with-lease is safer than --force, but confirm"
+ask  git clean*-f* "Deletes untracked files"
+ask  git stash*drop* "Discards a stash entry"
+ask  git stash*clear* "Discards all stashes"
+
+# --- Redirect guards ---
+# Build-output writes are allowed first; the secrets guards come last so they win on
+# overlap (a write to build/.env is still denied because the deny rule matches later).
+allow-redirect **/dist/**
+allow-redirect **/build/**
+deny-redirect **/.env*              "Do not write secrets to .env files — ask me first"
+deny-redirect **/*.pem              "Private keys are protected — ask me first"
+deny-redirect **/*.key              "Key files are protected — ask me first"
+deny-redirect **/id_rsa*            "SSH private keys are protected"
+deny-redirect **/.ssh/**            "SSH directory is protected"
+deny-redirect **/.aws/**            "AWS credentials/config are protected"
+deny-redirect **/.azure/**          "Azure credentials are protected"
+deny-redirect **/.kube/**           "Kubeconfig is protected"
+deny-redirect **/.dippy-windows/**  "dippy-windows config is protected"
+
+# --- MCP tools (no rule = passthrough; replace these with your installed servers' tool names) ---
+allow-mcp mcp__github__get*
+allow-mcp mcp__github__list*
+ask-mcp   mcp__github__create*
+ask-mcp   mcp__github__update*
+ask-mcp   mcp__github__delete*
+
+# --- Audit (optional) ---
+# set log C:/path/to/dippy-windows-audit.log
