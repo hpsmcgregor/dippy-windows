@@ -70,3 +70,26 @@ def test_unknown_keyword_is_none():
 def test_malformed_set_is_none():
     assert parse_line("set default bogus") is None
     assert parse_line("set") is None
+
+
+def test_unclosed_quote_is_none():
+    assert parse_line("deny rm 'use trash") is None
+    assert parse_line('allow git "oops') is None
+
+
+def test_quote_in_pattern_is_none():
+    assert parse_line("deny ec\"ho") is None
+
+
+def test_alias_preserves_value_case():
+    d = parse_line("alias g Git-Thing")
+    assert d.args == ("g", "Git-Thing")
+
+
+def test_set_log_without_arg_is_none():
+    assert parse_line("set log") is None
+
+
+def test_alias_wrong_token_count_is_none():
+    assert parse_line("alias g") is None
+    assert parse_line("alias g git extra") is None

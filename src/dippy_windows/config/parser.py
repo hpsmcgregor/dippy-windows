@@ -32,6 +32,8 @@ def _make_rule(kind: str, action: str, remainder: str, compile_fn) -> Rule | Non
     pattern = m.group("pattern").strip()
     if not pattern:
         return None
+    if "'" in pattern or '"' in pattern:
+        return None
     return Rule(kind, action, compile_fn(pattern), m.group("msg"))
 
 
@@ -52,7 +54,7 @@ def parse_line(line: str) -> Rule | Directive | None:
     if kw == "alias":
         toks = remainder.split()
         if len(toks) == 2:
-            return Directive("alias", (toks[0].lower(), toks[1].lower()))
+            return Directive("alias", (toks[0].lower(), toks[1]))
         return None
 
     if kw == "set":
