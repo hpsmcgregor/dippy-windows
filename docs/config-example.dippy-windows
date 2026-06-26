@@ -56,6 +56,7 @@ allow git rebase
 allow uv                 # uv run executes arbitrary code — keep only if trusted
 allow ruff
 allow pytest
+allow python -m pytest
 allow pyright
 allow npm test
 allow npm run            # runs arbitrary package.json scripts — keep only if trusted
